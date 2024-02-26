@@ -1,16 +1,18 @@
-class zcl_mailer definition public final create public .
+=class zcl_mailer definition public final create public .
   public section.
     class-data:
       mailer type ref to zcl_mailer.
     class-methods:
       send_mail
         importing
-                  ip_content     type string
-                  ip_cont_descr  type string
-                  ip_subject     type string
-                  ip_recipent    type string
-                  ip_sender      type syst_uname
-        returning value(rp_sent) type abap_bool.
+                  ip_content       type string
+                  ip_cont_descr    type string
+                  ip_subject       type string
+                  ip_recipent      type string
+                  ip_sender        type syst_uname
+                  ip_send_immedial type abap_bool
+                  ip_commit        type abap_bool
+        returning value(rp_sent)   type abap_bool.
     methods:
       constructor.
   private section.
@@ -21,6 +23,7 @@ class zcl_mailer definition public final create public .
           ip_cont_descr type string,
       set_subject importing ip_subject type string,
       set_sender importing ip_sender type syst_uname,
+      set_send_immedial importing ip_send_immedial type abap_bool,
       set_recipent importing ip_recipent type string.
 
     data: gr_mail        type ref to cl_bcs,
@@ -54,6 +57,8 @@ CLASS ZCL_MAILER IMPLEMENTATION.
 * | [--->] IP_SUBJECT                     TYPE        STRING
 * | [--->] IP_RECIPENT                    TYPE        STRING
 * | [--->] IP_SENDER                      TYPE        SYST_UNAME
+* | [--->] IP_SEND_IMMEDIAL               TYPE        ABAP_BOOL
+* | [--->] IP_COMMIT                      TYPE        ABAP_BOOL
 * | [<-()] RP_SENT                        TYPE        ABAP_BOOL
 * +--------------------------------------------------------------------------------------</SIGNATURE>
   method send_mail.
@@ -64,11 +69,14 @@ CLASS ZCL_MAILER IMPLEMENTATION.
         mailer->set_content( ip_content = ip_content ip_cont_descr = ip_cont_descr ).
         mailer->set_subject( ip_subject ).
         mailer->set_sender( ip_sender ).
+        mailer->set_send_immedial( ip_send_immedial ).
         mailer->set_recipent( ip_recipent ).
 
         "Send mail and return rp_sent
         mailer->gr_mail->send( receiving result = rp_sent ).
-        commit work.
+        if rp_sent eq abap_true and ip_commit eq abap_true. "not commit in extensions
+          commit work and wait .
+        endif.
       catch cx_send_req_bcs.
         rollback work.
     endtry.
@@ -120,6 +128,21 @@ CLASS ZCL_MAILER IMPLEMENTATION.
         data(lo_sender) = cl_sapuser_bcs=>create( ip_sender ).
         me->gr_mail->set_sender( lo_sender ).
       catch cx_send_req_bcs cx_address_bcs.
+    endtry.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_MAILER->SET_SEND_IMMEDIAL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IP_SEND_IMMEDIAL               TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method set_send_immedial.
+    try.
+        if ip_send_immedial eq abap_true.
+          gr_mail->set_send_immediately( abap_true ).
+        endif.
+      catch cx_send_req_bcs.
     endtry.
   endmethod.
 
